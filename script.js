@@ -1,567 +1,555 @@
-class P2PFileShare {
+class P2PFileTransfer {
   constructor() {
-    this.ws = null;
-    this.peerId = null;
-    this.peers = new Map();
-    this.selectedFiles = [];
-    this.transfers = new Map();
-    this.dataTransferred = 0;
+    this.peerConnection = null;
+    this.dataChannel = null;
     this.isConnected = false;
+    this.selectedFile = null;
+
+    // Transfer state
+    this.transferState = {
+      sending: false,
+      receiving: false,
+      filename: "",
+      filesize: 0,
+      transferred: 0,
+      startTime: 0,
+      chunks: [],
+    };
 
     this.init();
   }
 
   init() {
-    this.setupWebSocket();
-    this.setupDragAndDrop();
     this.setupEventListeners();
-    this.startHeartbeat();
-    this.updateUI();
+    this.log(
+      "System ready - Choose to create offer or paste an offer to connect",
+      "info"
+    );
   }
 
-  setupWebSocket() {
-    // Simulate WebSocket connection (in real Next.js app, this would connect to your WebSocket server)
-    this.simulateWebSocketConnection();
-  }
+  setupEventListeners() {
+    // Connection setup
+    document
+      .getElementById("createOffer")
+      .addEventListener("click", () => this.createOffer());
+    document
+      .getElementById("createAnswer")
+      .addEventListener("click", () => this.createAnswer());
+    document
+      .getElementById("processAnswer")
+      .addEventListener("click", () => this.processAnswer());
 
-  simulateWebSocketConnection() {
-    this.addActivity("Establishing WebSocket connection...");
+    // Copy buttons
+    document
+      .getElementById("copyOffer")
+      .addEventListener("click", () => this.copyToClipboard("offerText"));
+    document
+      .getElementById("copyAnswer")
+      .addEventListener("click", () => this.copyToClipboard("answerOutput"));
 
-    setTimeout(() => {
-      this.peerId = "peer-" + Math.random().toString(36).substr(2, 8);
-      this.isConnected = true;
-      this.updateConnectionStatus(true);
-      this.addActivity(`Connected as ${this.peerId}`);
-
-      // Simulate peer discovery
-      this.simulatePeerDiscovery();
-
-      // Start receiving simulated messages
-      this.startMessageSimulation();
-    }, 1000);
-  }
-
-  simulatePeerDiscovery() {
-    const peerNames = [
-      "alice-dev",
-      "bob-mobile",
-      "charlie-web",
-      "diana-desktop",
-      "eve-tablet",
-    ];
-
-    setInterval(() => {
-      if (Math.random() < 0.3) {
-        // 30% chance to add/remove peer
-        if (this.peers.size < 5 && Math.random() < 0.7) {
-          // Add peer
-          const name = peerNames[Math.floor(Math.random() * peerNames.length)];
-          const id = "peer-" + Math.random().toString(36).substr(2, 8);
-          const latency = Math.floor(Math.random() * 200) + 20;
-
-          if (!Array.from(this.peers.values()).some((p) => p.name === name)) {
-            this.peers.set(id, {
-              id,
-              name,
-              latency,
-              status: "online",
-              lastSeen: Date.now(),
-            });
-            this.addActivity(`Peer ${name} joined the network`);
-          }
-        } else if (this.peers.size > 0) {
-          // Remove peer
-          const peerIds = Array.from(this.peers.keys());
-          const randomId = peerIds[Math.floor(Math.random() * peerIds.length)];
-          const peer = this.peers.get(randomId);
-          this.peers.delete(randomId);
-          this.addActivity(`Peer ${peer.name} left the network`);
-        }
-        this.updatePeerList();
-      }
-    }, 3000);
-  }
-
-  startMessageSimulation() {
-    setInterval(() => {
-      if (Math.random() < 0.1) {
-        // 10% chance to receive file
-        this.simulateIncomingFile();
-      }
-    }, 5000);
-
-    // Update latency
-    setInterval(() => {
-      const latency = Math.floor(Math.random() * 50) + 15;
-      document.getElementById("networkLatency").textContent = latency + " ms";
-    }, 2000);
-  }
-
-  setupDragAndDrop() {
-    const dropZone = document.getElementById("dropZone");
+    // File handling
     const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
 
     dropZone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) =>
+      this.handleFileSelect(e.target.files[0])
+    );
 
+    // Drag and drop
     dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
-      dropZone.classList.add("drag-over");
+      dropZone.classList.add("border-blue-500", "bg-blue-50");
     });
 
     dropZone.addEventListener("dragleave", () => {
-      dropZone.classList.remove("drag-over");
+      dropZone.classList.remove("border-blue-500", "bg-blue-50");
     });
 
     dropZone.addEventListener("drop", (e) => {
       e.preventDefault();
-      dropZone.classList.remove("drag-over");
-      this.handleFiles(e.dataTransfer.files);
+      dropZone.classList.remove("border-blue-500", "bg-blue-50");
+      const file = e.dataTransfer.files[0];
+      if (file) this.handleFileSelect(file);
     });
 
-    fileInput.addEventListener("change", (e) => {
-      this.handleFiles(e.target.files);
-    });
+    document
+      .getElementById("sendFile")
+      .addEventListener("click", () => this.sendFile());
   }
 
-  setupEventListeners() {
-    document
-      .getElementById("sendBtn")
-      .addEventListener("click", () => this.sendFiles());
-    document
-      .getElementById("broadcastBtn")
-      .addEventListener("click", () => this.broadcastFiles());
-    document
-      .getElementById("refreshPeers")
-      .addEventListener("click", () => this.refreshPeers());
-    document
-      .getElementById("reconnectBtn")
-      .addEventListener("click", () => this.reconnect());
+  async createOffer() {
+    try {
+      this.log("Creating WebRTC connection...", "info");
+      this.updateConnectionStatus("Creating offer...");
 
-    // Peer input with suggestions
-    const targetPeerInput = document.getElementById("targetPeer");
-    targetPeerInput.addEventListener("input", (e) =>
-      this.showPeerSuggestions(e.target.value)
-    );
-    targetPeerInput.addEventListener("blur", () => {
-      setTimeout(
-        () =>
-          document.getElementById("peerSuggestions").classList.add("hidden"),
-        200
+      this.peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      });
+
+      // Create data channel
+      this.dataChannel = this.peerConnection.createDataChannel("fileTransfer", {
+        ordered: true,
+      });
+
+      this.setupDataChannel(this.dataChannel);
+      this.setupPeerConnection();
+
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+
+      // Wait for ICE gathering to complete
+      await this.waitForIceGathering();
+
+      document.getElementById("offerText").value = JSON.stringify(
+        this.peerConnection.localDescription
       );
-    });
-  }
+      document.getElementById("offerSection").classList.remove("hidden");
+      document.getElementById("answerSection").classList.remove("hidden");
 
-  handleFiles(files) {
-    this.selectedFiles = Array.from(files);
-    this.displaySelectedFiles();
-    this.addActivity(`Selected ${files.length} file(s) for sharing`);
-  }
-
-  displaySelectedFiles() {
-    const fileList = document.getElementById("fileList");
-    fileList.innerHTML = "";
-
-    this.selectedFiles.forEach((file, index) => {
-      const fileItem = document.createElement("div");
-      fileItem.className =
-        "bg-white bg-opacity-10 rounded-lg p-4 flex items-center justify-between slide-in";
-      fileItem.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                                ${this.getFileIcon(file.type)}
-                            </div>
-                            <div>
-                                <div class="text-white font-medium">${
-                                  file.name
-                                }</div>
-                                <div class="text-blue-200 text-sm">${this.formatFileSize(
-                                  file.size
-                                )} • ${file.type || "Unknown type"}</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <div class="text-blue-200 text-sm">${this.getFileCategory(
-                              file.type
-                            )}</div>
-                            <button onclick="p2pShare.removeFile(${index})" class="text-red-400 hover:text-red-300 transition-colors p-1">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    `;
-      fileList.appendChild(fileItem);
-    });
-  }
-
-  getFileIcon(type) {
-    if (type.startsWith("image/")) {
-      return '<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path></svg>';
-    } else if (type.startsWith("video/")) {
-      return '<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"></path></svg>';
-    } else if (type.includes("pdf")) {
-      return '<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"></path></svg>';
-    }
-    return '<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>';
-  }
-
-  getFileCategory(type) {
-    if (type.startsWith("image/")) return "Image";
-    if (type.startsWith("video/")) return "Video";
-    if (type.startsWith("audio/")) return "Audio";
-    if (type.includes("pdf")) return "PDF";
-    if (type.includes("text")) return "Text";
-    if (type.includes("zip") || type.includes("rar")) return "Archive";
-    return "File";
-  }
-
-  removeFile(index) {
-    this.selectedFiles.splice(index, 1);
-    this.displaySelectedFiles();
-  }
-
-  showPeerSuggestions(query) {
-    const suggestions = document.getElementById("peerSuggestions");
-    const peers = Array.from(this.peers.values()).filter(
-      (peer) =>
-        peer.name.toLowerCase().includes(query.toLowerCase()) ||
-        peer.id.toLowerCase().includes(query.toLowerCase())
-    );
-
-    if (query && peers.length > 0) {
-      suggestions.innerHTML = peers
-        .map(
-          (peer) => `
-                        <div class="px-4 py-2 hover:bg-gray-700 cursor-pointer text-white" onclick="p2pShare.selectPeer('${peer.id}', '${peer.name}')">
-                            <div class="font-medium">${peer.name}</div>
-                            <div class="text-sm text-gray-400">${peer.id} • ${peer.latency}ms</div>
-                        </div>
-                    `
-        )
-        .join("");
-      suggestions.classList.remove("hidden");
-    } else {
-      suggestions.classList.add("hidden");
+      this.log("Offer created! Share it with the receiver", "success");
+      this.updateConnectionStatus("Offer created - waiting for answer");
+    } catch (error) {
+      this.log(`Error creating offer: ${error.message}`, "error");
+      this.updateConnectionStatus("Failed to create offer");
     }
   }
 
-  selectPeer(id, name) {
-    document.getElementById("targetPeer").value = `${name} (${id})`;
-    document.getElementById("peerSuggestions").classList.add("hidden");
-  }
-
-  sendFiles() {
-    const targetInput = document.getElementById("targetPeer").value.trim();
-
-    if (!targetInput) {
-      alert("Please select a peer to send files to");
-      return;
-    }
-
-    if (this.selectedFiles.length === 0) {
-      alert("Please select files to send");
-      return;
-    }
-
-    const targetPeer = this.extractPeerId(targetInput);
-    this.startFileTransfer(targetPeer, this.selectedFiles);
-  }
-
-  broadcastFiles() {
-    if (this.selectedFiles.length === 0) {
-      alert("Please select files to broadcast");
-      return;
-    }
-
-    const activePeers = Array.from(this.peers.keys());
-    if (activePeers.length === 0) {
-      alert("No active peers to broadcast to");
-      return;
-    }
-
-    activePeers.forEach((peerId) => {
-      this.startFileTransfer(peerId, this.selectedFiles, true);
-    });
-  }
-
-  extractPeerId(input) {
-    const match = input.match(/\(([^)]+)\)/);
-    return match ? match[1] : input;
-  }
-
-  startFileTransfer(targetPeer, files, isBroadcast = false) {
-    const transferSection = document.getElementById("transferSection");
-    const transferList = document.getElementById("transferList");
-
-    transferSection.classList.remove("hidden");
-
-    files.forEach((file, index) => {
-      const transferId = Date.now() + index;
-      const peer = this.peers.get(targetPeer) || {
-        name: targetPeer,
-        id: targetPeer,
-      };
-
-      const transferItem = document.createElement("div");
-      transferItem.className =
-        "bg-white bg-opacity-10 rounded-lg p-4 file-transfer-animation slide-in";
-      transferItem.innerHTML = `
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                                    ${this.getFileIcon(file.type)}
-                                </div>
-                                <div>
-                                    <div class="text-white font-medium">${
-                                      file.name
-                                    }</div>
-                                    <div class="text-blue-200 text-sm">To: ${
-                                      peer.name
-                                    } • ${this.formatFileSize(file.size)}</div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-blue-200 text-sm" id="status-${transferId}">Initializing...</div>
-                                <div class="text-blue-300 text-xs" id="speed-${transferId}">Preparing transfer</div>
-                            </div>
-                        </div>
-                        <div class="w-full bg-gray-700 rounded-full h-2 mb-2">
-                            <div class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300" id="progress-${transferId}" style="width: 0%"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-blue-200">
-                            <span id="transferred-${transferId}">0 MB</span>
-                            <span id="eta-${transferId}">Calculating...</span>
-                        </div>
-                    `;
-      transferList.appendChild(transferItem);
-
-      this.simulateTransfer(transferId, file.size, peer.name, isBroadcast);
-    });
-
-    // Clear selected files
-    this.selectedFiles = [];
-    this.displaySelectedFiles();
-    document.getElementById("targetPeer").value = "";
-
-    this.addActivity(
-      `Started ${isBroadcast ? "broadcast" : "transfer"} of ${
-        files.length
-      } file(s)`
-    );
-  }
-
-  simulateTransfer(transferId, fileSize, peerName, isBroadcast) {
-    let progress = 0;
-    let transferred = 0;
-    const startTime = Date.now();
-
-    const statusEl = document.getElementById(`status-${transferId}`);
-    const progressEl = document.getElementById(`progress-${transferId}`);
-    const speedEl = document.getElementById(`speed-${transferId}`);
-    const transferredEl = document.getElementById(`transferred-${transferId}`);
-    const etaEl = document.getElementById(`eta-${transferId}`);
-
-    const interval = setInterval(() => {
-      const increment = Math.random() * 8 + 2; // 2-10% progress
-      progress = Math.min(progress + increment, 100);
-      transferred = (progress / 100) * fileSize;
-
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = transferred / elapsed; // bytes per second
-      const eta = progress < 100 ? (fileSize - transferred) / speed : 0;
-
-      if (progress >= 100) {
-        statusEl.textContent = "Completed";
-        statusEl.className = "text-green-300 text-sm";
-        speedEl.textContent = "Transfer completed successfully";
-        etaEl.textContent = "Done";
-
-        this.dataTransferred += fileSize / (1024 * 1024); // Convert to MB
-        this.updateDataTransferred();
-        this.addActivity(`File sent to ${peerName} successfully`);
-
-        clearInterval(interval);
-      } else {
-        statusEl.textContent = "Transferring...";
-        speedEl.textContent = `${this.formatSpeed(speed)} • ${progress.toFixed(
-          1
-        )}% complete`;
-        etaEl.textContent = `${Math.ceil(eta)}s remaining`;
+  async createAnswer() {
+    try {
+      const offerText = document.getElementById("offerInput").value.trim();
+      if (!offerText) {
+        alert("Please paste the offer first");
+        return;
       }
 
-      progressEl.style.width = `${progress}%`;
-      transferredEl.textContent = this.formatFileSize(transferred);
-    }, 300);
+      this.log("Processing offer and creating answer...", "info");
+      this.updateConnectionStatus("Creating answer...");
+
+      const offer = JSON.parse(offerText);
+
+      this.peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      });
+
+      this.setupPeerConnection();
+
+      // Handle incoming data channel
+      this.peerConnection.ondatachannel = (event) => {
+        this.dataChannel = event.channel;
+        this.setupDataChannel(this.dataChannel);
+      };
+
+      await this.peerConnection.setRemoteDescription(offer);
+      const answer = await this.peerConnection.createAnswer();
+      await this.peerConnection.setLocalDescription(answer);
+
+      // Wait for ICE gathering to complete
+      await this.waitForIceGathering();
+
+      document.getElementById("answerOutput").value = JSON.stringify(
+        this.peerConnection.localDescription
+      );
+      document.getElementById("answerOutputSection").classList.remove("hidden");
+
+      this.log("Answer created! Share it with the sender", "success");
+      this.updateConnectionStatus("Answer created - waiting for connection");
+    } catch (error) {
+      this.log(`Error creating answer: ${error.message}`, "error");
+      this.updateConnectionStatus("Failed to create answer");
+    }
   }
 
-  simulateIncomingFile() {
-    const fileNames = [
-      "document.docx",
-      "presentation.pdf",
-      "image.jpg",
-      "video.mp4",
-      "archive.zip",
-      "spreadsheet.xlsx",
-      "code.js",
-      "design.psd",
-    ];
-    const peers = Array.from(this.peers.values());
+  async processAnswer() {
+    try {
+      const answerText = document.getElementById("answerInput").value.trim();
+      if (!answerText) {
+        alert("Please paste the answer first");
+        return;
+      }
 
-    if (peers.length === 0) return;
+      this.log("Processing answer...", "info");
+      this.updateConnectionStatus("Connecting...");
 
-    const fileName = fileNames[Math.floor(Math.random() * fileNames.length)];
-    const peer = peers[Math.floor(Math.random() * peers.length)];
-    const fileSize = Math.floor(Math.random() * 50 * 1024 * 1024) + 1024 * 1024; // 1MB to 50MB
+      const answer = JSON.parse(answerText);
+      await this.peerConnection.setRemoteDescription(answer);
 
-    this.addIncomingFile(fileName, peer, fileSize);
-    this.addActivity(`Received ${fileName} from ${peer.name}`);
+      this.log("Answer processed - establishing connection...", "info");
+    } catch (error) {
+      this.log(`Error processing answer: ${error.message}`, "error");
+      this.updateConnectionStatus("Failed to process answer");
+    }
   }
 
-  addIncomingFile(fileName, peer, fileSize) {
-    const receivedFiles = document.getElementById("receivedFiles");
+  setupPeerConnection() {
+    this.peerConnection.oniceconnectionstatechange = () => {
+      this.log(
+        `ICE connection state: ${this.peerConnection.iceConnectionState}`,
+        "info"
+      );
 
-    // Remove "no files" message if it exists
-    const noFilesMsg = receivedFiles.querySelector(".text-center");
-    if (noFilesMsg) noFilesMsg.remove();
+      if (
+        this.peerConnection.iceConnectionState === "connected" ||
+        this.peerConnection.iceConnectionState === "completed"
+      ) {
+        this.onConnectionEstablished();
+      } else if (this.peerConnection.iceConnectionState === "failed") {
+        this.log("Connection failed", "error");
+        this.updateConnectionStatus("Connection failed");
+      }
+    };
 
-    const fileItem = document.createElement("div");
-    fileItem.className = "bg-white bg-opacity-10 rounded-lg p-4 slide-in";
-    fileItem.innerHTML = `
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="text-white font-medium">${fileName}</div>
-                                <div class="text-blue-200 text-sm">From: ${
-                                  peer.name
-                                } • ${this.formatFileSize(fileSize)}</div>
-                                <div class="text-green-300 text-xs">${new Date().toLocaleTimeString()}</div>
-                            </div>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button onclick="p2pShare.downloadFile(this)" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all transform hover:scale-105">
-                                Download
-                            </button>
-                            <button onclick="p2pShare.previewFile(this, '${fileName}')" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all">
-                                👁️
-                            </button>
-                        </div>
-                    </div>
+    this.peerConnection.onconnectionstatechange = () => {
+      this.log(
+        `Connection state: ${this.peerConnection.connectionState}`,
+        "info"
+      );
+    };
+  }
+
+  setupDataChannel(channel) {
+    channel.onopen = () => {
+      this.log("Data channel opened - ready for file transfer!", "success");
+      this.isConnected = true;
+      document.getElementById("sendFile").disabled = false;
+    };
+
+    channel.onclose = () => {
+      this.log("Data channel closed", "info");
+      this.isConnected = false;
+      document.getElementById("sendFile").disabled = true;
+    };
+
+    channel.onmessage = (event) => {
+      this.handleIncomingData(event.data);
+    };
+
+    channel.onerror = (error) => {
+      this.log(`Data channel error: ${error}`, "error");
+    };
+  }
+
+  async waitForIceGathering() {
+    return new Promise((resolve) => {
+      if (this.peerConnection.iceGatheringState === "complete") {
+        resolve();
+      } else {
+        this.peerConnection.addEventListener("icegatheringstatechange", () => {
+          if (this.peerConnection.iceGatheringState === "complete") {
+            resolve();
+          }
+        });
+      }
+    });
+  }
+
+  onConnectionEstablished() {
+    this.log("🎉 Connection established successfully!", "success");
+    this.updateConnectionStatus("Connected");
+    document.getElementById("connectedStatus").classList.remove("hidden");
+  }
+
+  handleFileSelect(file) {
+    if (!file) return;
+
+    this.selectedFile = file;
+    const dropZone = document.getElementById("dropZone");
+    dropZone.innerHTML = `
+                    <div class="text-4xl mb-2">📄</div>
+                    <p class="text-gray-800 font-medium">${file.name}</p>
+                    <p class="text-sm text-gray-500">${this.formatFileSize(
+                      file.size
+                    )}</p>
+                    <p class="text-xs text-gray-400 mt-1">Ready to send</p>
                 `;
 
-    receivedFiles.insertBefore(fileItem, receivedFiles.firstChild);
-  }
-
-  downloadFile(button) {
-    button.innerHTML = "✓ Downloaded";
-    button.className =
-      "bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed";
-    button.disabled = true;
-  }
-
-  previewFile(button, fileName) {
-    alert(
-      `Preview functionality for ${fileName} would open here in a real implementation`
+    document.getElementById("sendFile").disabled = !this.isConnected;
+    this.log(
+      `File selected: ${file.name} (${this.formatFileSize(file.size)})`,
+      "info"
     );
   }
 
-  updatePeerList() {
-    const peerList = document.getElementById("peerList");
-    peerList.innerHTML = "";
-
-    if (this.peers.size === 0) {
-      peerList.innerHTML = `
-                        <div class="text-center py-6 text-blue-200">
-                            <svg class="mx-auto h-8 w-8 mb-2 opacity-50" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
-                            </svg>
-                            <p class="text-sm">No peers online</p>
-                        </div>
-                    `;
+  async sendFile() {
+    if (!this.selectedFile || !this.isConnected || !this.dataChannel) {
+      this.log("Cannot send file - not connected or no file selected", "error");
       return;
     }
 
-    Array.from(this.peers.values()).forEach((peer) => {
-      const peerItem = document.createElement("div");
-      peerItem.className =
-        "bg-white bg-opacity-10 rounded-lg p-3 cursor-pointer hover:bg-opacity-20 transition-all transform hover:scale-[1.02] slide-in";
-      peerItem.onclick = () => this.selectPeer(peer.id, peer.name);
+    const file = this.selectedFile;
+    this.transferState = {
+      sending: true,
+      receiving: false,
+      filename: file.name,
+      filesize: file.size,
+      transferred: 0,
+      startTime: Date.now(),
+      chunks: [],
+    };
 
-      const statusColor = peer.status === "online" ? "green" : "yellow";
+    this.log(`Starting file transfer: ${file.name}`, "info");
+    this.showProgress(true);
 
-      peerItem.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-gradient-to-br from-${statusColor}-500 to-${statusColor}-600 rounded-full flex items-center justify-center">
-                                    <span class="text-white text-xs font-bold">${peer.name
-                                      .charAt(0)
-                                      .toUpperCase()}</span>
-                                </div>
-                                <div>
-                                    <div class="text-white font-medium text-sm">${
-                                      peer.name
-                                    }</div>
-                                    <div class="text-${statusColor}-300 text-xs">${
-        peer.status
-      } • ${peer.latency}ms</div>
-                                </div>
-                            </div>
-                            <div class="w-2 h-2 bg-${statusColor}-400 rounded-full pulse-dot"></div>
-                        </div>
-                    `;
-      peerList.appendChild(peerItem);
-    });
+    // Send file metadata
+    const metadata = {
+      type: "file-start",
+      filename: file.name,
+      filesize: file.size,
+      filetype: file.type || "application/octet-stream",
+    };
 
-    document.getElementById("peerCount").textContent = this.peers.size;
+    this.dataChannel.send(JSON.stringify(metadata));
+
+    // Send file in chunks
+    const CHUNK_SIZE = 16384; // 16KB chunks
+    let offset = 0;
+
+    const sendNextChunk = async () => {
+      if (offset >= file.size) {
+        // File transfer complete
+        this.dataChannel.send(JSON.stringify({ type: "file-end" }));
+        this.transferState.sending = false;
+        this.hideProgress();
+        this.log("File transfer completed successfully!", "success");
+        return;
+      }
+
+      const chunk = file.slice(offset, offset + CHUNK_SIZE);
+      const arrayBuffer = await chunk.arrayBuffer();
+
+      try {
+        this.dataChannel.send(arrayBuffer);
+        offset += chunk.size;
+        this.transferState.transferred = offset;
+
+        this.updateProgress();
+
+        // Continue with next chunk
+        setTimeout(sendNextChunk, 1);
+      } catch (error) {
+        this.log(`Error sending chunk: ${error.message}`, "error");
+        this.transferState.sending = false;
+        this.hideProgress();
+      }
+    };
+
+    sendNextChunk();
   }
 
-  updateConnectionStatus(connected) {
-    const wsStatus = document.getElementById("wsStatus");
-    const reconnectBtn = document.getElementById("reconnectBtn");
-    const myPeerId = document.getElementById("myPeerId");
+  handleIncomingData(data) {
+    if (typeof data === "string") {
+      // JSON message
+      try {
+        const message = JSON.parse(data);
 
-    if (connected) {
-      wsStatus.innerHTML = `
-                        <div class="w-3 h-3 bg-green-400 rounded-full pulse-dot"></div>
-                        <span class="text-green-300 font-medium">Connected</span>
-                    `;
-      reconnectBtn.classList.add("hidden");
-      myPeerId.textContent = this.peerId;
+        if (message.type === "file-start") {
+          this.transferState = {
+            sending: false,
+            receiving: true,
+            filename: message.filename,
+            filesize: message.filesize,
+            filetype: message.filetype,
+            transferred: 0,
+            startTime: Date.now(),
+            chunks: [],
+          };
+
+          this.log(
+            `Receiving file: ${message.filename} (${this.formatFileSize(
+              message.filesize
+            )})`,
+            "info"
+          );
+          this.showProgress(true);
+        } else if (message.type === "file-end") {
+          this.completeFileReceive();
+        }
+      } catch (error) {
+        this.log(`Error parsing message: ${error.message}`, "error");
+      }
     } else {
-      wsStatus.innerHTML = `
-                        <div class="w-3 h-3 bg-red-400 rounded-full"></div>
-                        <span class="text-red-300 font-medium">Disconnected</span>
-                    `;
-      reconnectBtn.classList.remove("hidden");
-      myPeerId.textContent = "Disconnected";
+      // Binary data (file chunk)
+      if (this.transferState.receiving) {
+        this.transferState.chunks.push(new Uint8Array(data));
+        this.transferState.transferred += data.byteLength;
+        this.updateProgress();
+      }
     }
   }
 
-  updateDataTransferred() {
-    document.getElementById("dataTransferred").textContent =
-      this.dataTransferred.toFixed(1) + " MB";
+  completeFileReceive() {
+    if (!this.transferState.receiving) return;
+
+    // Combine all chunks
+    const totalSize = this.transferState.chunks.reduce(
+      (sum, chunk) => sum + chunk.length,
+      0
+    );
+    const combinedArray = new Uint8Array(totalSize);
+    let offset = 0;
+
+    for (const chunk of this.transferState.chunks) {
+      combinedArray.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Create blob and download URL
+    const blob = new Blob([combinedArray], {
+      type: this.transferState.filetype,
+    });
+    const url = URL.createObjectURL(blob);
+
+    this.addReceivedFile(
+      this.transferState.filename,
+      this.transferState.filesize,
+      url
+    );
+
+    this.log(
+      `File received successfully: ${this.transferState.filename}`,
+      "success"
+    );
+    this.hideProgress();
+
+    // Reset state
+    this.transferState.receiving = false;
   }
 
-  addActivity(message) {
-    const activityFeed = document.getElementById("activityFeed");
+  addReceivedFile(filename, filesize, downloadUrl) {
+    const container = document.getElementById("receivedFiles");
+
+    // Remove empty state
+    if (container.querySelector(".text-gray-500")) {
+      container.innerHTML = "";
+    }
+
+    const fileElement = document.createElement("div");
+    fileElement.className =
+      "flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4";
+    fileElement.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="text-3xl">📄</div>
+                        <div>
+                            <div class="font-medium text-gray-800">${filename}</div>
+                            <div class="text-sm text-gray-600">${this.formatFileSize(
+                              filesize
+                            )}</div>
+                            <div class="text-xs text-green-600 font-medium">✅ Received</div>
+                        </div>
+                    </div>
+                    <a href="${downloadUrl}" download="${filename}" 
+                       class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2">
+                        💾 Download
+                    </a>
+                `;
+
+    container.appendChild(fileElement);
+  }
+
+  showProgress(show) {
+    const progressDiv = document.getElementById("transferProgress");
+    if (show) {
+      progressDiv.classList.remove("hidden");
+    } else {
+      progressDiv.classList.add("hidden");
+    }
+  }
+
+  hideProgress() {
+    this.showProgress(false);
+  }
+
+  updateProgress() {
+    if (!this.transferState.filesize) return;
+
+    const percent =
+      (this.transferState.transferred / this.transferState.filesize) * 100;
+    const elapsed = (Date.now() - this.transferState.startTime) / 1000;
+    const speed = this.transferState.transferred / elapsed;
+    const remaining =
+      (this.transferState.filesize - this.transferState.transferred) / speed;
+
+    document.getElementById("progressPercent").textContent = `${Math.round(
+      percent
+    )}%`;
+    document.getElementById("progressBar").style.width = `${percent}%`;
+
+    const action = this.transferState.sending ? "Sending" : "Receiving";
+    document.getElementById(
+      "progressText"
+    ).textContent = `${action} ${this.transferState.filename}`;
+    document.getElementById("speedText").textContent = `${this.formatFileSize(
+      speed
+    )}/s`;
+    document.getElementById("etaText").textContent = isFinite(remaining)
+      ? this.formatTime(remaining)
+      : "--:--";
+  }
+
+  updateConnectionStatus(status) {
+    const statusEl = document.getElementById("connectionStatus");
+    statusEl.textContent = status;
+
+    statusEl.className = "px-3 py-1 rounded-full text-sm font-medium";
+    if (status.includes("Connected")) {
+      statusEl.classList.add("bg-green-100", "text-green-700");
+    } else if (status.includes("Failed") || status.includes("failed")) {
+      statusEl.classList.add("bg-red-100", "text-red-700");
+    } else if (status.includes("Creating") || status.includes("Connecting")) {
+      statusEl.classList.add("bg-yellow-100", "text-yellow-700");
+    } else {
+      statusEl.classList.add("bg-gray-100", "text-gray-600");
+    }
+  }
+
+  async copyToClipboard(elementId) {
+    const text = document.getElementById(elementId).value;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.log("Copied to clipboard!", "success");
+    } catch (error) {
+      this.log("Failed to copy to clipboard", "error");
+    }
+  }
+
+  log(message, type = "info") {
+    const logContainer = document.getElementById("activityLog");
     const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement("div");
 
-    const activity = document.createElement("div");
-    activity.className = "text-green-400 text-sm font-mono mb-1 slide-in";
-    activity.textContent = `[${timestamp}] ${message}`;
+    let icon = "📝";
+    let colorClass = "text-gray-600";
 
-    activityFeed.insertBefore(activity, activityFeed.firstChild);
-
-    // Keep only last 10 activities
-    while (activityFeed.children.length > 10) {
-      activityFeed.removeChild(activityFeed.lastChild);
+    switch (type) {
+      case "success":
+        icon = "✅";
+        colorClass = "text-green-600";
+        break;
+      case "error":
+        icon = "❌";
+        colorClass = "text-red-600";
+        break;
+      case "info":
+        icon = "ℹ️";
+        colorClass = "text-blue-600";
+        break;
     }
 
-    activityFeed.scrollTop = 0;
+    logEntry.className = colorClass;
+    logEntry.innerHTML = `${icon} ${timestamp} - ${message}`;
+
+    logContainer.insertBefore(logEntry, logContainer.firstChild);
+
+    // Keep only last 100 entries
+    while (logContainer.children.length > 100) {
+      logContainer.removeChild(logContainer.lastChild);
+    }
   }
 
   formatFileSize(bytes) {
@@ -572,39 +560,14 @@ class P2PFileShare {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   }
 
-  formatSpeed(bytesPerSecond) {
-    return this.formatFileSize(bytesPerSecond) + "/s";
-  }
-
-  refreshPeers() {
-    this.addActivity("Refreshing peer list...");
-    // In real implementation, this would send a discovery request
-    setTimeout(() => {
-      this.addActivity("Peer discovery completed");
-    }, 500);
-  }
-
-  reconnect() {
-    this.addActivity("Attempting to reconnect...");
-    this.setupWebSocket();
-  }
-
-  startHeartbeat() {
-    setInterval(() => {
-      if (this.isConnected) {
-        // In real implementation, send heartbeat to server
-        this.addActivity("Heartbeat sent");
-      }
-    }, 30000); // Every 30 seconds
-  }
-
-  updateUI() {
-    // Update UI elements periodically
-    setInterval(() => {
-      this.updatePeerList();
-    }, 5000);
+  formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   }
 }
 
-// Initialize the P2P file sharing application
-const p2pShare = new P2PFileShare();
+// Initialize the application
+new P2PFileTransfer();

@@ -3,327 +3,461 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple P2P File Share</title>
+    <title>P2P File Share - Working Connection</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     <div class="max-w-2xl mx-auto">
-        <h1 class="text-3xl font-bold text-center mb-6">📁 Simple P2P File Share</h1>
+        <h1 class="text-3xl font-bold text-center mb-6">📁 P2P File Share</h1>
         
-        <!-- Connection -->
+        <!-- Connection Setup -->
         <div class="bg-white rounded-lg p-4 mb-4 shadow">
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                    <h3 class="font-semibold mb-2">Create Room</h3>
+                    <h3 class="font-semibold mb-2">Host (Create Room)</h3>
                     <button id="createBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                         🏠 Create Room
                     </button>
-                    <div id="roomDisplay" class="hidden mt-2 p-2 bg-green-50 border rounded">
-                        <p class="text-sm text-green-700">Room ID:</p>
-                        <div class="flex gap-2">
-                            <code id="roomCode" class="flex-1 bg-white px-2 py-1 rounded border font-mono"></code>
-                            <button id="copyBtn" class="bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700">Copy</button>
+                    <div id="offerSection" class="hidden mt-2">
+                        <p class="text-sm text-green-700 mb-1">Share this with guest:</p>
+                        <textarea id="offerText" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
+                        <button id="copyOfferBtn" class="w-full mt-1 bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700">Copy Offer</button>
+                        
+                        <div id="answerSection" class="hidden mt-2">
+                            <p class="text-sm text-green-700 mb-1">Paste guest's answer:</p>
+                            <textarea id="answerInput" class="w-full h-20 p-2 border rounded text-xs font-mono" placeholder="Paste answer here..."></textarea>
+                            <button id="connectBtn" class="w-full mt-1 bg-purple-600 text-white px-2 py-1 rounded text-sm hover:bg-purple-700">Connect</button>
                         </div>
                     </div>
                 </div>
                 <div>
-                    <h3 class="font-semibold mb-2">Join Room</h3>
-                    <div class="flex gap-2">
-                        <input id="roomId" placeholder="Enter Room ID" class="flex-1 px-3 py-2 border rounded">
-                        <button id="joinBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</button>
+                    <h3 class="font-semibold mb-2">Guest (Join Room)</h3>
+                    <div class="space-y-2">
+                        <textarea id="offerInput" placeholder="Paste host's offer here..." class="w-full h-20 p-2 border rounded text-xs font-mono"></textarea>
+                        <button id="joinBtn" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join Room</button>
+                        
+                        <div id="answerOutput" class="hidden">
+                            <p class="text-sm text-blue-700 mb-1">Send this to host:</p>
+                            <textarea id="answerText" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
+                            <button id="copyAnswerBtn" class="w-full mt-1 bg-blue-600 text-white px-2 py-1 rounded text-sm hover:bg-blue-700">Copy Answer</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div id="status" class="text-sm text-gray-600 p-2 bg-gray-50 rounded">Ready to create or join a room</div>
+            
+            <div id="status" class="text-sm p-3 rounded" style="background: #f3f4f6; color: #6b7280;">
+                Ready - Host creates room, Guest joins with offer
+            </div>
         </div>
 
         <!-- File Transfer -->
         <div class="bg-white rounded-lg p-4 mb-4 shadow">
-            <input type="file" id="fileInput" class="mb-2">
-            <button id="sendBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300" disabled>
-                Send File
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-2">Select File to Send:</label>
+                <input type="file" id="fileInput" class="w-full p-2 border rounded">
+            </div>
+            <button id="sendBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                📤 Send File
             </button>
-            <div id="progress" class="hidden mt-2">
-                <div class="bg-gray-200 rounded-full h-2">
-                    <div id="progressBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+            <div id="progress" class="hidden mt-3">
+                <div class="flex justify-between text-sm mb-1">
+                    <span id="progressText">Preparing...</span>
+                    <span id="progressPercent">0%</span>
                 </div>
-                <div id="progressText" class="text-sm text-gray-600 mt-1">0%</div>
+                <div class="bg-gray-200 rounded-full h-3">
+                    <div id="progressBar" class="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all" style="width: 0%"></div>
+                </div>
             </div>
         </div>
 
         <!-- Received Files -->
         <div class="bg-white rounded-lg p-4 shadow">
-            <h3 class="font-bold mb-2">Received Files</h3>
+            <h3 class="font-bold mb-3">📥 Received Files</h3>
             <div id="files" class="space-y-2">
-                <div class="text-gray-500">No files received</div>
+                <div class="text-gray-500 text-center py-4 border-2 border-dashed border-gray-200 rounded">
+                    No files received yet
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        class SimpleP2P {
+        class WorkingP2P {
             constructor() {
-                this.peer = null;
-                this.connected = false;
-                this.room = null;
-                this.ws = null;
+                this.peerConnection = null;
+                this.dataChannel = null;
+                this.isConnected = false;
                 this.isHost = false;
+                this.transferState = null;
                 this.init();
             }
 
             init() {
+                // Event listeners
                 document.getElementById('createBtn').onclick = () => this.createRoom();
                 document.getElementById('joinBtn').onclick = () => this.joinRoom();
-                document.getElementById('copyBtn').onclick = () => this.copyRoomId();
+                document.getElementById('connectBtn').onclick = () => this.processAnswer();
                 document.getElementById('sendBtn').onclick = () => this.sendFile();
-                this.connectWebSocket();
-                this.updateStatus('Ready to create or join a room');
+                
+                // Copy buttons
+                document.getElementById('copyOfferBtn').onclick = () => this.copyText('offerText');
+                document.getElementById('copyAnswerBtn').onclick = () => this.copyText('answerText');
+                
+                this.updateStatus('Ready - Host creates room, Guest joins with offer', 'info');
             }
 
-            connectWebSocket() {
-                // For demo purposes, we'll simulate WebSocket connection
-                // In real Next.js app, connect to your WebSocket server
-                this.updateStatus('Connecting to signaling server...');
-                
-                // Simulate WebSocket connection
-                setTimeout(() => {
-                    this.ws = {
-                        send: (data) => {
-                            // Simulate message handling
-                            setTimeout(() => this.handleWebSocketMessage(data), 100);
-                        },
-                        readyState: 1 // OPEN
+            async createRoom() {
+                try {
+                    this.isHost = true;
+                    this.updateStatus('Creating room...', 'info');
+                    
+                    // Create peer connection
+                    this.peerConnection = new RTCPeerConnection({
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    });
+
+                    // Create data channel
+                    this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
+                        ordered: true
+                    });
+                    
+                    this.setupDataChannel();
+                    this.setupPeerConnection();
+
+                    // Create offer
+                    const offer = await this.peerConnection.createOffer();
+                    await this.peerConnection.setLocalDescription(offer);
+
+                    // Wait for ICE gathering
+                    await this.waitForIceGathering();
+
+                    // Display offer
+                    document.getElementById('offerText').value = JSON.stringify(this.peerConnection.localDescription);
+                    document.getElementById('offerSection').classList.remove('hidden');
+                    document.getElementById('answerSection').classList.remove('hidden');
+                    
+                    this.updateStatus('Room created! Share the offer with guest', 'success');
+                    
+                } catch (error) {
+                    this.updateStatus(`Error creating room: ${error.message}`, 'error');
+                }
+            }
+
+            async joinRoom() {
+                try {
+                    const offerText = document.getElementById('offerInput').value.trim();
+                    if (!offerText) {
+                        alert('Please paste the host\'s offer first');
+                        return;
+                    }
+
+                    this.isHost = false;
+                    this.updateStatus('Joining room...', 'info');
+
+                    // Parse offer
+                    const offer = JSON.parse(offerText);
+                    
+                    // Create peer connection
+                    this.peerConnection = new RTCPeerConnection({
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    });
+
+                    this.setupPeerConnection();
+
+                    // Handle incoming data channel
+                    this.peerConnection.ondatachannel = (event) => {
+                        this.dataChannel = event.channel;
+                        this.setupDataChannel();
                     };
-                    this.updateStatus('Connected to signaling server');
-                }, 500);
-            }
 
-            createRoom() {
-                this.room = Math.random().toString(36).substring(2, 8).toUpperCase();
-                this.isHost = true;
-                
-                document.getElementById('roomCode').textContent = this.room;
-                document.getElementById('roomDisplay').classList.remove('hidden');
-                
-                this.updateStatus(`Room ${this.room} created! Waiting for someone to join...`);
-                this.setupPeerConnection(true);
-            }
+                    // Set remote description and create answer
+                    await this.peerConnection.setRemoteDescription(offer);
+                    const answer = await this.peerConnection.createAnswer();
+                    await this.peerConnection.setLocalDescription(answer);
 
-            copyRoomId() {
-                const roomCode = document.getElementById('roomCode').textContent;
-                navigator.clipboard.writeText(roomCode).then(() => {
-                    const btn = document.getElementById('copyBtn');
-                    const original = btn.textContent;
-                    btn.textContent = 'Copied!';
-                    setTimeout(() => btn.textContent = original, 2000);
-                });
-            }
+                    // Wait for ICE gathering
+                    await this.waitForIceGathering();
 
-            joinRoom() {
-                const roomId = document.getElementById('roomId').value.trim().toUpperCase();
-                if (!roomId) {
-                    alert('Please enter a room ID');
-                    return;
-                }
-
-                this.room = roomId;
-                this.isHost = false;
-                this.updateStatus(`Joining room ${roomId}...`);
-                
-                // Send join request via WebSocket
-                if (this.ws && this.ws.readyState === 1) {
-                    this.ws.send(JSON.stringify({
-                        type: 'join-room',
-                        room: roomId
-                    }));
-                }
-                
-                this.setupPeerConnection(false);
-            }
-
-            handleWebSocketMessage(data) {
-                // Simulate WebSocket message handling
-                const message = typeof data === 'string' ? JSON.parse(data) : data;
-                
-                if (message.type === 'join-room') {
-                    // Simulate successful room join
-                    setTimeout(() => {
-                        this.updateStatus('Room joined! Establishing connection...');
-                        this.simulateConnection();
-                    }, 500);
-                } else if (message.type === 'peer-signal') {
-                    // Handle WebRTC signaling through WebSocket
-                    this.handleSignaling(message.signal);
+                    // Display answer
+                    document.getElementById('answerText').value = JSON.stringify(this.peerConnection.localDescription);
+                    document.getElementById('answerOutput').classList.remove('hidden');
+                    
+                    this.updateStatus('Answer created! Send it back to host', 'success');
+                    
+                } catch (error) {
+                    this.updateStatus(`Error joining room: ${error.message}`, 'error');
                 }
             }
 
-            setupPeerConnection(isHost) {
-                this.peer = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
+            async processAnswer() {
+                try {
+                    const answerText = document.getElementById('answerInput').value.trim();
+                    if (!answerText) {
+                        alert('Please paste the guest\'s answer first');
+                        return;
+                    }
 
-                if (isHost) {
-                    const channel = this.peer.createDataChannel('files');
-                    this.setupChannel(channel);
-                } else {
-                    this.peer.ondatachannel = (e) => this.setupChannel(e.channel);
+                    this.updateStatus('Processing answer...', 'info');
+
+                    const answer = JSON.parse(answerText);
+                    await this.peerConnection.setRemoteDescription(answer);
+                    
+                    this.updateStatus('Answer processed - establishing connection...', 'info');
+                    
+                } catch (error) {
+                    this.updateStatus(`Error processing answer: ${error.message}`, 'error');
                 }
+            }
 
-                // Handle ICE candidates
-                this.peer.onicecandidate = (event) => {
-                    if (event.candidate && this.ws) {
-                        this.ws.send(JSON.stringify({
-                            type: 'peer-signal',
-                            room: this.room,
-                            signal: {
-                                type: 'ice-candidate',
-                                candidate: event.candidate
-                            }
-                        }));
+            setupPeerConnection() {
+                this.peerConnection.oniceconnectionstatechange = () => {
+                    const state = this.peerConnection.iceConnectionState;
+                    console.log('ICE connection state:', state);
+                    
+                    if (state === 'connected' || state === 'completed') {
+                        this.updateStatus('🎉 Connected! Ready to transfer files', 'success');
+                    } else if (state === 'failed') {
+                        this.updateStatus('Connection failed', 'error');
                     }
                 };
 
-                // Simulate connection establishment
-                setTimeout(() => this.simulateConnection(), 1000);
+                this.peerConnection.onconnectionstatechange = () => {
+                    console.log('Connection state:', this.peerConnection.connectionState);
+                };
             }
 
-            handleSignaling(signal) {
-                // Handle WebRTC signaling messages
-                if (signal.type === 'ice-candidate') {
-                    this.peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                }
-            }
-
-            setupChannel(channel) {
-                channel.onopen = () => {
-                    this.connected = true;
-                    this.updateStatus(`🎉 Connected to room ${this.room}! Ready to send files`);
+            setupDataChannel() {
+                this.dataChannel.onopen = () => {
+                    console.log('Data channel opened');
+                    this.isConnected = true;
                     document.getElementById('sendBtn').disabled = false;
+                    this.updateStatus('🎉 Connected! Ready to transfer files', 'success');
                 };
 
-                channel.onmessage = (e) => this.handleMessage(e.data);
-                channel.onclose = () => {
-                    this.connected = false;
-                    this.updateStatus('Connection closed');
+                this.dataChannel.onclose = () => {
+                    console.log('Data channel closed');
+                    this.isConnected = false;
                     document.getElementById('sendBtn').disabled = true;
+                    this.updateStatus('Connection closed', 'info');
                 };
-                
-                this.dataChannel = channel;
+
+                this.dataChannel.onmessage = (event) => {
+                    this.handleIncomingData(event.data);
+                };
+
+                this.dataChannel.onerror = (error) => {
+                    console.error('Data channel error:', error);
+                    this.updateStatus('Data channel error', 'error');
+                };
             }
 
-            simulateConnection() {
-                // Simulate successful connection for demo
-                if (this.dataChannel) {
-                    this.dataChannel.onopen();
-                } else {
-                    setTimeout(() => {
-                        this.connected = true;
-                        this.updateStatus(`🎉 Connected to room ${this.room}! Ready to send files`);
-                        document.getElementById('sendBtn').disabled = false;
-                    }, 500);
-                }
+            async waitForIceGathering() {
+                return new Promise((resolve) => {
+                    if (this.peerConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        this.peerConnection.addEventListener('icegatheringstatechange', () => {
+                            if (this.peerConnection.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        });
+                    }
+                });
             }
 
             async sendFile() {
-                const file = document.getElementById('fileInput').files[0];
-                if (!file || !this.connected) return;
-
-                this.showProgress(true);
-                this.updateProgress(0, 'Preparing...');
-
-                // Send file info
-                const fileInfo = {
-                    type: 'fileInfo',
-                    name: file.name,
-                    size: file.size
-                };
-
-                if (this.dataChannel && this.dataChannel.readyState === 'open') {
-                    this.dataChannel.send(JSON.stringify(fileInfo));
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Please select a file first');
+                    return;
+                }
+                
+                if (!this.isConnected || !this.dataChannel) {
+                    alert('Not connected to peer');
+                    return;
                 }
 
+                console.log('Starting file transfer:', file.name);
+                this.showProgress(true);
+                
+                // Initialize transfer state
+                this.transferState = {
+                    file: file,
+                    sent: 0,
+                    startTime: Date.now()
+                };
+
+                // Send file metadata
+                const metadata = {
+                    type: 'file-start',
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || 'application/octet-stream'
+                };
+
+                this.dataChannel.send(JSON.stringify(metadata));
+                this.updateProgress(0, `Sending ${file.name}`);
+
                 // Send file in chunks
-                const chunkSize = 16384;
+                const CHUNK_SIZE = 16384; // 16KB
                 let offset = 0;
 
                 const sendChunk = async () => {
                     if (offset >= file.size) {
+                        // Transfer complete
+                        this.dataChannel.send(JSON.stringify({ type: 'file-end' }));
                         this.showProgress(false);
-                        this.updateStatus('File sent successfully!');
+                        this.updateStatus('File sent successfully!', 'success');
                         return;
                     }
 
-                    const chunk = file.slice(offset, offset + chunkSize);
-                    const buffer = await chunk.arrayBuffer();
+                    const chunk = file.slice(offset, offset + CHUNK_SIZE);
+                    const arrayBuffer = await chunk.arrayBuffer();
                     
-                    if (this.dataChannel && this.dataChannel.readyState === 'open') {
-                        this.dataChannel.send(buffer);
+                    try {
+                        this.dataChannel.send(arrayBuffer);
+                        offset += chunk.size;
+                        this.transferState.sent = offset;
+                        
+                        const progress = (offset / file.size) * 100;
+                        this.updateProgress(progress, `Sending ${file.name}`);
+                        
+                        // Continue with next chunk
+                        setTimeout(sendChunk, 1);
+                    } catch (error) {
+                        console.error('Error sending chunk:', error);
+                        this.showProgress(false);
+                        this.updateStatus('Error sending file', 'error');
                     }
-                    
-                    offset += chunkSize;
-                    const progress = Math.min((offset / file.size) * 100, 100);
-                    this.updateProgress(progress, `Sending ${file.name}`);
-                    
-                    setTimeout(sendChunk, 10);
                 };
 
                 sendChunk();
             }
 
-            handleMessage(data) {
+            handleIncomingData(data) {
                 if (typeof data === 'string') {
-                    const msg = JSON.parse(data);
-                    if (msg.type === 'fileInfo') {
-                        this.receivingFile = {
-                            name: msg.name,
-                            size: msg.size,
-                            chunks: [],
-                            received: 0
-                        };
-                        this.updateStatus(`Receiving ${msg.name}...`);
-                    }
-                } else {
-                    // Binary data
-                    if (this.receivingFile) {
-                        this.receivingFile.chunks.push(new Uint8Array(data));
-                        this.receivingFile.received += data.byteLength;
+                    try {
+                        const message = JSON.parse(data);
                         
-                        if (this.receivingFile.received >= this.receivingFile.size) {
+                        if (message.type === 'file-start') {
+                            console.log('Receiving file:', message.name);
+                            this.transferState = {
+                                receiving: true,
+                                name: message.name,
+                                size: message.size,
+                                filetype: message.type,
+                                received: 0,
+                                chunks: []
+                            };
+                            this.updateStatus(`Receiving ${message.name}...`, 'info');
+                            
+                        } else if (message.type === 'file-end') {
                             this.completeFileReceive();
                         }
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                } else {
+                    // Binary data (file chunk)
+                    if (this.transferState && this.transferState.receiving) {
+                        this.transferState.chunks.push(new Uint8Array(data));
+                        this.transferState.received += data.byteLength;
+                        
+                        const progress = (this.transferState.received / this.transferState.size) * 100;
+                        console.log(`Received ${this.transferState.received}/${this.transferState.size} bytes (${progress.toFixed(1)}%)`);
                     }
                 }
             }
 
             completeFileReceive() {
-                const file = this.receivingFile;
-                const blob = new Blob(file.chunks);
-                const url = URL.createObjectURL(blob);
+                if (!this.transferState || !this.transferState.receiving) return;
+
+                console.log('Completing file receive');
                 
-                this.addReceivedFile(file.name, url);
-                this.updateStatus('File received!');
-                this.receivingFile = null;
+                // Combine chunks
+                const totalSize = this.transferState.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+                const combinedArray = new Uint8Array(totalSize);
+                let offset = 0;
+                
+                for (const chunk of this.transferState.chunks) {
+                    combinedArray.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                // Create blob and download URL
+                const blob = new Blob([combinedArray], { type: this.transferState.filetype });
+                const url = URL.createObjectURL(blob);
+
+                this.addReceivedFile(this.transferState.name, this.transferState.size, url);
+                this.updateStatus(`File received: ${this.transferState.name}`, 'success');
+                
+                // Reset state
+                this.transferState = null;
             }
 
-            addReceivedFile(name, url) {
+            addReceivedFile(name, size, url) {
                 const container = document.getElementById('files');
-                if (container.children[0]?.textContent === 'No files received') {
+                
+                // Remove empty state
+                if (container.querySelector('.text-gray-500')) {
                     container.innerHTML = '';
                 }
-                
+
                 const fileDiv = document.createElement('div');
-                fileDiv.className = 'flex justify-between items-center p-2 bg-gray-50 rounded';
+                fileDiv.className = 'flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded';
                 fileDiv.innerHTML = `
-                    <span>📄 ${name}</span>
-                    <a href="${url}" download="${name}" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
-                        Download
+                    <div>
+                        <div class="font-medium">📄 ${name}</div>
+                        <div class="text-sm text-gray-600">${this.formatFileSize(size)}</div>
+                    </div>
+                    <a href="${url}" download="${name}" 
+                       class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
+                        💾 Download
                     </a>
                 `;
+                
                 container.appendChild(fileDiv);
             }
 
-            updateStatus(text) {
-                document.getElementById('status').textContent = text;
+            async copyText(elementId) {
+                const text = document.getElementById(elementId).value;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    this.updateStatus('Copied to clipboard!', 'success');
+                } catch (error) {
+                    console.error('Copy failed:', error);
+                }
+            }
+
+            updateStatus(message, type = 'info') {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = message;
+                
+                // Update styling based on type
+                statusEl.className = 'text-sm p-3 rounded';
+                switch (type) {
+                    case 'success':
+                        statusEl.style.background = '#dcfce7';
+                        statusEl.style.color = '#166534';
+                        break;
+                    case 'error':
+                        statusEl.style.background = '#fef2f2';
+                        statusEl.style.color = '#dc2626';
+                        break;
+                    case 'info':
+                    default:
+                        statusEl.style.background = '#f3f4f6';
+                        statusEl.style.color = '#6b7280';
+                        break;
+                }
             }
 
             showProgress(show) {
@@ -331,12 +465,22 @@
             }
 
             updateProgress(percent, text) {
-                document.getElementById('progressBar').style.width = percent + '%';
-                document.getElementById('progressText').textContent = text + ` (${Math.round(percent)}%)`;
+                document.getElementById('progressBar').style.width = `${percent}%`;
+                document.getElementById('progressPercent').textContent = `${Math.round(percent)}%`;
+                document.getElementById('progressText').textContent = text;
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
         }
 
-        new SimpleP2P();
+        // Initialize the app
+        new WorkingP2P();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97248547f32a8e8d',t:'MTc1NTcyMDQ4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97249a66557d38b4',t:'MTc1NTcyMTM1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

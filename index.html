@@ -1,486 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P File Share - Working Connection</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>P2P File Share - WebRTC</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen p-4">
-    <div class="max-w-2xl mx-auto">
-        <h1 class="text-3xl font-bold text-center mb-6">📁 P2P File Share</h1>
-        
-        <!-- Connection Setup -->
-        <div class="bg-white rounded-lg p-4 mb-4 shadow">
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <h3 class="font-semibold mb-2">Host (Create Room)</h3>
-                    <button id="createBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                        🏠 Create Room
-                    </button>
-                    <div id="offerSection" class="hidden mt-2">
-                        <p class="text-sm text-green-700 mb-1">Share this with guest:</p>
-                        <textarea id="offerText" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
-                        <button id="copyOfferBtn" class="w-full mt-1 bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700">Copy Offer</button>
-                        
-                        <div id="answerSection" class="hidden mt-2">
-                            <p class="text-sm text-green-700 mb-1">Paste guest's answer:</p>
-                            <textarea id="answerInput" class="w-full h-20 p-2 border rounded text-xs font-mono" placeholder="Paste answer here..."></textarea>
-                            <button id="connectBtn" class="w-full mt-1 bg-purple-600 text-white px-2 py-1 rounded text-sm hover:bg-purple-700">Connect</button>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="font-semibold mb-2">Guest (Join Room)</h3>
-                    <div class="space-y-2">
-                        <textarea id="offerInput" placeholder="Paste host's offer here..." class="w-full h-20 p-2 border rounded text-xs font-mono"></textarea>
-                        <button id="joinBtn" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join Room</button>
-                        
-                        <div id="answerOutput" class="hidden">
-                            <p class="text-sm text-blue-700 mb-1">Send this to host:</p>
-                            <textarea id="answerText" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
-                            <button id="copyAnswerBtn" class="w-full mt-1 bg-blue-600 text-white px-2 py-1 rounded text-sm hover:bg-blue-700">Copy Answer</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="status" class="text-sm p-3 rounded" style="background: #f3f4f6; color: #6b7280;">
-                Ready - Host creates room, Guest joins with offer
-            </div>
+  </head>
+  <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">P2P File Share</h1>
+        <p class="text-gray-600">Enjoy dosto 😊</p>
+      </div>
+
+      <!-- Connection Setup -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">Connection Setup</h2>
+          <div
+            id="connectionStatus"
+            class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600"
+          >
+            Ready
+          </div>
         </div>
 
-        <!-- File Transfer -->
-        <div class="bg-white rounded-lg p-4 mb-4 shadow">
-            <div class="mb-3">
-                <label class="block text-sm font-medium mb-2">Select File to Send:</label>
-                <input type="file" id="fileInput" class="w-full p-2 border rounded">
-            </div>
-            <button id="sendBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
-                📤 Send File
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Sender Side -->
+          <div class="space-y-4">
+            <h3 class="font-medium text-gray-700">📤 Sender (Host)</h3>
+            <button
+              id="createOffer"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              Create Connection Offer
             </button>
-            <div id="progress" class="hidden mt-3">
-                <div class="flex justify-between text-sm mb-1">
-                    <span id="progressText">Preparing...</span>
-                    <span id="progressPercent">0%</span>
-                </div>
-                <div class="bg-gray-200 rounded-full h-3">
-                    <div id="progressBar" class="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all" style="width: 0%"></div>
-                </div>
+            <div id="offerSection" class="hidden space-y-3">
+              <label class="block text-sm font-medium text-gray-700"
+                >Share this offer with receiver:</label
+              >
+              <textarea
+                id="offerText"
+                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono resize-none"
+                readonly
+              ></textarea>
+              <button
+                id="copyOffer"
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm"
+              >
+                📋 Copy Offer
+              </button>
             </div>
+            <div id="answerSection" class="hidden space-y-3">
+              <label class="block text-sm font-medium text-gray-700"
+                >Paste receiver's answer here:</label
+              >
+              <textarea
+                id="answerInput"
+                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono"
+                placeholder="Paste the answer from receiver..."
+              ></textarea>
+              <button
+                id="processAnswer"
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg"
+              >
+                Connect with Answer
+              </button>
+            </div>
+          </div>
+
+          <!-- Receiver Side -->
+          <div class="space-y-4">
+            <h3 class="font-medium text-gray-700">📥 Receiver (Guest)</h3>
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-gray-700"
+                >Paste sender's offer here:</label
+              >
+              <textarea
+                id="offerInput"
+                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono"
+                placeholder="Paste the offer from sender..."
+              ></textarea>
+              <button
+                id="createAnswer"
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg"
+              >
+                Create Answer
+              </button>
+            </div>
+            <div id="answerOutputSection" class="hidden space-y-3">
+              <label class="block text-sm font-medium text-gray-700"
+                >Share this answer with sender:</label
+              >
+              <textarea
+                id="answerOutput"
+                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono resize-none"
+                readonly
+              ></textarea>
+              <button
+                id="copyAnswer"
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm"
+              >
+                📋 Copy Answer
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Received Files -->
-        <div class="bg-white rounded-lg p-4 shadow">
-            <h3 class="font-bold mb-3">📥 Received Files</h3>
-            <div id="files" class="space-y-2">
-                <div class="text-gray-500 text-center py-4 border-2 border-dashed border-gray-200 rounded">
-                    No files received yet
-                </div>
-            </div>
+        <!-- Connection Status -->
+        <div
+          id="connectedStatus"
+          class="hidden mt-6 bg-green-50 border border-green-200 rounded-lg p-4"
+        >
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span class="text-green-700 font-medium"
+              >🎉 Connected! Ready to transfer files</span
+            >
+          </div>
         </div>
+      </div>
+
+      <!-- File Transfer -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          📁 File Transfer
+        </h2>
+
+        <!-- Send File Section -->
+        <div
+          class="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-4 text-center transition-colors"
+          id="dropZone"
+        >
+          <input type="file" id="fileInput" class="hidden" />
+          <div class="cursor-pointer">
+            <div class="text-4xl mb-2">📤</div>
+            <p class="text-gray-600 mb-2">
+              Click to select a file or drag and drop
+            </p>
+            <p class="text-sm text-gray-500">Any file type supported</p>
+          </div>
+        </div>
+
+        <button
+          id="sendFile"
+          class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+          disabled
+        >
+          🚀 Send File
+        </button>
+
+        <!-- Transfer Progress -->
+        <div id="transferProgress" class="hidden mt-4">
+          <div class="flex justify-between text-sm text-gray-600 mb-1">
+            <span id="progressText">Preparing...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div
+              id="progressBar"
+              class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-300"
+              style="width: 0%"
+            ></div>
+          </div>
+          <div class="flex justify-between text-xs text-gray-500 mt-1">
+            <span id="speedText">0 KB/s</span>
+            <span id="etaText">--:--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Received Files -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          📥 Received Files
+        </h2>
+        <div id="receivedFiles" class="space-y-3">
+          <div
+            class="text-gray-500 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg"
+          >
+            <div class="text-3xl mb-2">📭</div>
+            <p>No files received yet</p>
+            <p class="text-sm mt-1">Files will appear here when received</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          📋 Activity Log
+        </h2>
+        <div
+          id="activityLog"
+          class="bg-gray-50 rounded-lg p-4 h-48 overflow-y-auto font-mono text-sm space-y-1"
+        >
+          <div class="text-blue-600">🚀 P2P File Share initialized</div>
+          <div class="text-gray-600">Ready to create connections...</div>
+        </div>
+      </div>
     </div>
 
+    <script src="script.js"></script>
     <script>
-        class WorkingP2P {
-            constructor() {
-                this.peerConnection = null;
-                this.dataChannel = null;
-                this.isConnected = false;
-                this.isHost = false;
-                this.transferState = null;
-                this.init();
-            }
-
-            init() {
-                // Event listeners
-                document.getElementById('createBtn').onclick = () => this.createRoom();
-                document.getElementById('joinBtn').onclick = () => this.joinRoom();
-                document.getElementById('connectBtn').onclick = () => this.processAnswer();
-                document.getElementById('sendBtn').onclick = () => this.sendFile();
-                
-                // Copy buttons
-                document.getElementById('copyOfferBtn').onclick = () => this.copyText('offerText');
-                document.getElementById('copyAnswerBtn').onclick = () => this.copyText('answerText');
-                
-                this.updateStatus('Ready - Host creates room, Guest joins with offer', 'info');
-            }
-
-            async createRoom() {
-                try {
-                    this.isHost = true;
-                    this.updateStatus('Creating room...', 'info');
-                    
-                    // Create peer connection
-                    this.peerConnection = new RTCPeerConnection({
-                        iceServers: [
-                            { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' }
-                        ]
-                    });
-
-                    // Create data channel
-                    this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
-                        ordered: true
-                    });
-                    
-                    this.setupDataChannel();
-                    this.setupPeerConnection();
-
-                    // Create offer
-                    const offer = await this.peerConnection.createOffer();
-                    await this.peerConnection.setLocalDescription(offer);
-
-                    // Wait for ICE gathering
-                    await this.waitForIceGathering();
-
-                    // Display offer
-                    document.getElementById('offerText').value = JSON.stringify(this.peerConnection.localDescription);
-                    document.getElementById('offerSection').classList.remove('hidden');
-                    document.getElementById('answerSection').classList.remove('hidden');
-                    
-                    this.updateStatus('Room created! Share the offer with guest', 'success');
-                    
-                } catch (error) {
-                    this.updateStatus(`Error creating room: ${error.message}`, 'error');
-                }
-            }
-
-            async joinRoom() {
-                try {
-                    const offerText = document.getElementById('offerInput').value.trim();
-                    if (!offerText) {
-                        alert('Please paste the host\'s offer first');
-                        return;
-                    }
-
-                    this.isHost = false;
-                    this.updateStatus('Joining room...', 'info');
-
-                    // Parse offer
-                    const offer = JSON.parse(offerText);
-                    
-                    // Create peer connection
-                    this.peerConnection = new RTCPeerConnection({
-                        iceServers: [
-                            { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' }
-                        ]
-                    });
-
-                    this.setupPeerConnection();
-
-                    // Handle incoming data channel
-                    this.peerConnection.ondatachannel = (event) => {
-                        this.dataChannel = event.channel;
-                        this.setupDataChannel();
-                    };
-
-                    // Set remote description and create answer
-                    await this.peerConnection.setRemoteDescription(offer);
-                    const answer = await this.peerConnection.createAnswer();
-                    await this.peerConnection.setLocalDescription(answer);
-
-                    // Wait for ICE gathering
-                    await this.waitForIceGathering();
-
-                    // Display answer
-                    document.getElementById('answerText').value = JSON.stringify(this.peerConnection.localDescription);
-                    document.getElementById('answerOutput').classList.remove('hidden');
-                    
-                    this.updateStatus('Answer created! Send it back to host', 'success');
-                    
-                } catch (error) {
-                    this.updateStatus(`Error joining room: ${error.message}`, 'error');
-                }
-            }
-
-            async processAnswer() {
-                try {
-                    const answerText = document.getElementById('answerInput').value.trim();
-                    if (!answerText) {
-                        alert('Please paste the guest\'s answer first');
-                        return;
-                    }
-
-                    this.updateStatus('Processing answer...', 'info');
-
-                    const answer = JSON.parse(answerText);
-                    await this.peerConnection.setRemoteDescription(answer);
-                    
-                    this.updateStatus('Answer processed - establishing connection...', 'info');
-                    
-                } catch (error) {
-                    this.updateStatus(`Error processing answer: ${error.message}`, 'error');
-                }
-            }
-
-            setupPeerConnection() {
-                this.peerConnection.oniceconnectionstatechange = () => {
-                    const state = this.peerConnection.iceConnectionState;
-                    console.log('ICE connection state:', state);
-                    
-                    if (state === 'connected' || state === 'completed') {
-                        this.updateStatus('🎉 Connected! Ready to transfer files', 'success');
-                    } else if (state === 'failed') {
-                        this.updateStatus('Connection failed', 'error');
-                    }
-                };
-
-                this.peerConnection.onconnectionstatechange = () => {
-                    console.log('Connection state:', this.peerConnection.connectionState);
-                };
-            }
-
-            setupDataChannel() {
-                this.dataChannel.onopen = () => {
-                    console.log('Data channel opened');
-                    this.isConnected = true;
-                    document.getElementById('sendBtn').disabled = false;
-                    this.updateStatus('🎉 Connected! Ready to transfer files', 'success');
-                };
-
-                this.dataChannel.onclose = () => {
-                    console.log('Data channel closed');
-                    this.isConnected = false;
-                    document.getElementById('sendBtn').disabled = true;
-                    this.updateStatus('Connection closed', 'info');
-                };
-
-                this.dataChannel.onmessage = (event) => {
-                    this.handleIncomingData(event.data);
-                };
-
-                this.dataChannel.onerror = (error) => {
-                    console.error('Data channel error:', error);
-                    this.updateStatus('Data channel error', 'error');
-                };
-            }
-
-            async waitForIceGathering() {
-                return new Promise((resolve) => {
-                    if (this.peerConnection.iceGatheringState === 'complete') {
-                        resolve();
-                    } else {
-                        this.peerConnection.addEventListener('icegatheringstatechange', () => {
-                            if (this.peerConnection.iceGatheringState === 'complete') {
-                                resolve();
-                            }
-                        });
-                    }
-                });
-            }
-
-            async sendFile() {
-                const fileInput = document.getElementById('fileInput');
-                const file = fileInput.files[0];
-                
-                if (!file) {
-                    alert('Please select a file first');
-                    return;
-                }
-                
-                if (!this.isConnected || !this.dataChannel) {
-                    alert('Not connected to peer');
-                    return;
-                }
-
-                console.log('Starting file transfer:', file.name);
-                this.showProgress(true);
-                
-                // Initialize transfer state
-                this.transferState = {
-                    file: file,
-                    sent: 0,
-                    startTime: Date.now()
-                };
-
-                // Send file metadata
-                const metadata = {
-                    type: 'file-start',
-                    name: file.name,
-                    size: file.size,
-                    type: file.type || 'application/octet-stream'
-                };
-
-                this.dataChannel.send(JSON.stringify(metadata));
-                this.updateProgress(0, `Sending ${file.name}`);
-
-                // Send file in chunks
-                const CHUNK_SIZE = 16384; // 16KB
-                let offset = 0;
-
-                const sendChunk = async () => {
-                    if (offset >= file.size) {
-                        // Transfer complete
-                        this.dataChannel.send(JSON.stringify({ type: 'file-end' }));
-                        this.showProgress(false);
-                        this.updateStatus('File sent successfully!', 'success');
-                        return;
-                    }
-
-                    const chunk = file.slice(offset, offset + CHUNK_SIZE);
-                    const arrayBuffer = await chunk.arrayBuffer();
-                    
-                    try {
-                        this.dataChannel.send(arrayBuffer);
-                        offset += chunk.size;
-                        this.transferState.sent = offset;
-                        
-                        const progress = (offset / file.size) * 100;
-                        this.updateProgress(progress, `Sending ${file.name}`);
-                        
-                        // Continue with next chunk
-                        setTimeout(sendChunk, 1);
-                    } catch (error) {
-                        console.error('Error sending chunk:', error);
-                        this.showProgress(false);
-                        this.updateStatus('Error sending file', 'error');
-                    }
-                };
-
-                sendChunk();
-            }
-
-            handleIncomingData(data) {
-                if (typeof data === 'string') {
-                    try {
-                        const message = JSON.parse(data);
-                        
-                        if (message.type === 'file-start') {
-                            console.log('Receiving file:', message.name);
-                            this.transferState = {
-                                receiving: true,
-                                name: message.name,
-                                size: message.size,
-                                filetype: message.type,
-                                received: 0,
-                                chunks: []
-                            };
-                            this.updateStatus(`Receiving ${message.name}...`, 'info');
-                            
-                        } else if (message.type === 'file-end') {
-                            this.completeFileReceive();
-                        }
-                    } catch (error) {
-                        console.error('Error parsing message:', error);
-                    }
-                } else {
-                    // Binary data (file chunk)
-                    if (this.transferState && this.transferState.receiving) {
-                        this.transferState.chunks.push(new Uint8Array(data));
-                        this.transferState.received += data.byteLength;
-                        
-                        const progress = (this.transferState.received / this.transferState.size) * 100;
-                        console.log(`Received ${this.transferState.received}/${this.transferState.size} bytes (${progress.toFixed(1)}%)`);
-                    }
-                }
-            }
-
-            completeFileReceive() {
-                if (!this.transferState || !this.transferState.receiving) return;
-
-                console.log('Completing file receive');
-                
-                // Combine chunks
-                const totalSize = this.transferState.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-                const combinedArray = new Uint8Array(totalSize);
-                let offset = 0;
-                
-                for (const chunk of this.transferState.chunks) {
-                    combinedArray.set(chunk, offset);
-                    offset += chunk.length;
-                }
-
-                // Create blob and download URL
-                const blob = new Blob([combinedArray], { type: this.transferState.filetype });
-                const url = URL.createObjectURL(blob);
-
-                this.addReceivedFile(this.transferState.name, this.transferState.size, url);
-                this.updateStatus(`File received: ${this.transferState.name}`, 'success');
-                
-                // Reset state
-                this.transferState = null;
-            }
-
-            addReceivedFile(name, size, url) {
-                const container = document.getElementById('files');
-                
-                // Remove empty state
-                if (container.querySelector('.text-gray-500')) {
-                    container.innerHTML = '';
-                }
-
-                const fileDiv = document.createElement('div');
-                fileDiv.className = 'flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded';
-                fileDiv.innerHTML = `
-                    <div>
-                        <div class="font-medium">📄 ${name}</div>
-                        <div class="text-sm text-gray-600">${this.formatFileSize(size)}</div>
-                    </div>
-                    <a href="${url}" download="${name}" 
-                       class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
-                        💾 Download
-                    </a>
-                `;
-                
-                container.appendChild(fileDiv);
-            }
-
-            async copyText(elementId) {
-                const text = document.getElementById(elementId).value;
-                try {
-                    await navigator.clipboard.writeText(text);
-                    this.updateStatus('Copied to clipboard!', 'success');
-                } catch (error) {
-                    console.error('Copy failed:', error);
-                }
-            }
-
-            updateStatus(message, type = 'info') {
-                const statusEl = document.getElementById('status');
-                statusEl.textContent = message;
-                
-                // Update styling based on type
-                statusEl.className = 'text-sm p-3 rounded';
-                switch (type) {
-                    case 'success':
-                        statusEl.style.background = '#dcfce7';
-                        statusEl.style.color = '#166534';
-                        break;
-                    case 'error':
-                        statusEl.style.background = '#fef2f2';
-                        statusEl.style.color = '#dc2626';
-                        break;
-                    case 'info':
-                    default:
-                        statusEl.style.background = '#f3f4f6';
-                        statusEl.style.color = '#6b7280';
-                        break;
-                }
-            }
-
-            showProgress(show) {
-                document.getElementById('progress').classList.toggle('hidden', !show);
-            }
-
-            updateProgress(percent, text) {
-                document.getElementById('progressBar').style.width = `${percent}%`;
-                document.getElementById('progressPercent').textContent = `${Math.round(percent)}%`;
-                document.getElementById('progressText').textContent = text;
-            }
-
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
+      (function () {
+        function c() {
+          var b = a.contentDocument || a.contentWindow.document;
+          if (b) {
+            var d = b.createElement("script");
+            d.innerHTML =
+              "window.__CF$cv$params={r:'972512ead6f5052e',t:'MTc1NTcyNjI4Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName("head")[0].appendChild(d);
+          }
         }
-
-        // Initialize the app
-        new WorkingP2P();
+        if (document.body) {
+          var a = document.createElement("iframe");
+          a.height = 1;
+          a.width = 1;
+          a.style.position = "absolute";
+          a.style.top = 0;
+          a.style.left = 0;
+          a.style.border = "none";
+          a.style.visibility = "hidden";
+          document.body.appendChild(a);
+          if ("loading" !== document.readyState) c();
+          else if (window.addEventListener)
+            document.addEventListener("DOMContentLoaded", c);
+          else {
+            var e = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (b) {
+              e(b);
+              "loading" !== document.readyState &&
+                ((document.onreadystatechange = e), c());
+            };
+          }
+        }
+      })();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97249a66557d38b4',t:'MTc1NTcyMTM1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  </body>
 </html>

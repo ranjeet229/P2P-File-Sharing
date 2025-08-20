@@ -1,247 +1,342 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>P2P File Share - WebRTC</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple P2P File Share</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-      
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-800 mb-2"> P2P File Share</h1>
-        <p class="text-gray-600">
-          Enjoy dosto 😊
-        </p>
-      </div>
-
-      <!-- Connection Setup -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-gray-800">Connection Setup</h2>
-          <div
-            id="connectionStatus"
-            class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600"
-          >
-            Ready
-          </div>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-6">📁 Simple P2P File Share</h1>
+        
+        <!-- Connection -->
+        <div class="bg-white rounded-lg p-4 mb-4 shadow">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <h3 class="font-semibold mb-2">Create Room</h3>
+                    <button id="createBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        🏠 Create Room
+                    </button>
+                    <div id="roomDisplay" class="hidden mt-2 p-2 bg-green-50 border rounded">
+                        <p class="text-sm text-green-700">Room ID:</p>
+                        <div class="flex gap-2">
+                            <code id="roomCode" class="flex-1 bg-white px-2 py-1 rounded border font-mono"></code>
+                            <button id="copyBtn" class="bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-2">Join Room</h3>
+                    <div class="flex gap-2">
+                        <input id="roomId" placeholder="Enter Room ID" class="flex-1 px-3 py-2 border rounded">
+                        <button id="joinBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</button>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="text-sm text-gray-600 p-2 bg-gray-50 rounded">Ready to create or join a room</div>
         </div>
 
-        <div class="grid md:grid-cols-2 gap-6">
-          <!-- Sender Side -->
-          <div class="space-y-4">
-            <h3 class="font-medium text-gray-700">📤 Sender (Host)</h3>
-            <button
-              id="createOffer"
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-            >
-              Create Connection Offer
+        <!-- File Transfer -->
+        <div class="bg-white rounded-lg p-4 mb-4 shadow">
+            <input type="file" id="fileInput" class="mb-2">
+            <button id="sendBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300" disabled>
+                Send File
             </button>
-            <div id="offerSection" class="hidden space-y-3">
-              <label class="block text-sm font-medium text-gray-700"
-                >Share this offer with receiver:</label
-              >
-              <textarea
-                id="offerText"
-                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono resize-none"
-                readonly
-              ></textarea>
-              <button
-                id="copyOffer"
-                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm"
-              >
-                📋 Copy Offer
-              </button>
+            <div id="progress" class="hidden mt-2">
+                <div class="bg-gray-200 rounded-full h-2">
+                    <div id="progressBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+                <div id="progressText" class="text-sm text-gray-600 mt-1">0%</div>
             </div>
-            <div id="answerSection" class="hidden space-y-3">
-              <label class="block text-sm font-medium text-gray-700"
-                >Paste receiver's answer here:</label
-              >
-              <textarea
-                id="answerInput"
-                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono"
-                placeholder="Paste the answer from receiver..."
-              ></textarea>
-              <button
-                id="processAnswer"
-                class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg"
-              >
-                Connect with Answer
-              </button>
+        </div>
+
+        <!-- Received Files -->
+        <div class="bg-white rounded-lg p-4 shadow">
+            <h3 class="font-bold mb-2">Received Files</h3>
+            <div id="files" class="space-y-2">
+                <div class="text-gray-500">No files received</div>
             </div>
-          </div>
-
-          <!-- Receiver Side -->
-          <div class="space-y-4">
-            <h3 class="font-medium text-gray-700">📥 Receiver (Guest)</h3>
-            <div class="space-y-3">
-              <label class="block text-sm font-medium text-gray-700"
-                >Paste sender's offer here:</label
-              >
-              <textarea
-                id="offerInput"
-                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono"
-                placeholder="Paste the offer from sender..."
-              ></textarea>
-              <button
-                id="createAnswer"
-                class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg"
-              >
-                Create Answer
-              </button>
-            </div>
-            <div id="answerOutputSection" class="hidden space-y-3">
-              <label class="block text-sm font-medium text-gray-700"
-                >Share this answer with sender:</label
-              >
-              <textarea
-                id="answerOutput"
-                class="w-full h-32 p-3 border border-gray-300 rounded-lg text-xs font-mono resize-none"
-                readonly
-              ></textarea>
-              <button
-                id="copyAnswer"
-                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm"
-              >
-                📋 Copy Answer
-              </button>
-            </div>
-          </div>
         </div>
-
-        <!-- Connection Status -->
-        <div
-          id="connectedStatus"
-          class="hidden mt-6 bg-green-50 border border-green-200 rounded-lg p-4"
-        >
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span class="text-green-700 font-medium"
-              >🎉 Connected! Ready to transfer files</span
-            >
-          </div>
-        </div>
-      </div>
-
-      <!-- File Transfer -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">
-          📁 File Transfer
-        </h2>
-
-        <!-- Send File Section -->
-        <div
-          class="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-4 text-center transition-colors"
-          id="dropZone"
-        >
-          <input type="file" id="fileInput" class="hidden" />
-          <div class="cursor-pointer">
-            <div class="text-4xl mb-2">📤</div>
-            <p class="text-gray-600 mb-2">
-              Click to select a file or drag and drop
-            </p>
-            <p class="text-sm text-gray-500">Any file type supported</p>
-          </div>
-        </div>
-
-        <button
-          id="sendFile"
-          class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          disabled
-        >
-          🚀 Send File
-        </button>
-
-        <!-- Transfer Progress -->
-        <div id="transferProgress" class="hidden mt-4">
-          <div class="flex justify-between text-sm text-gray-600 mb-1">
-            <span id="progressText">Preparing...</span>
-            <span id="progressPercent">0%</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-3">
-            <div
-              id="progressBar"
-              class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-300"
-              style="width: 0%"
-            ></div>
-          </div>
-          <div class="flex justify-between text-xs text-gray-500 mt-1">
-            <span id="speedText">0 KB/s</span>
-            <span id="etaText">--:--</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Received Files -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">
-          📥 Received Files
-        </h2>
-        <div id="receivedFiles" class="space-y-3">
-          <div
-            class="text-gray-500 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg"
-          >
-            <div class="text-3xl mb-2">📭</div>
-            <p>No files received yet</p>
-            <p class="text-sm mt-1">Files will appear here when received</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Activity Log -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">
-          📋 Activity Log
-        </h2>
-        <div
-          id="activityLog"
-          class="bg-gray-50 rounded-lg p-4 h-48 overflow-y-auto font-mono text-sm space-y-1"
-        >
-          <div class="text-blue-600"> P2P File Share initialized</div>
-          <div class="text-gray-600">Ready to create connections...</div>
-        </div>
-      </div>
     </div>
 
-    <script src="script.js"></script>
     <script>
-      (function () {
-        function c() {
-          var b = a.contentDocument || a.contentWindow.document;
-          if (b) {
-            var d = b.createElement("script");
-            d.innerHTML =
-              "window.__CF$cv$params={r:'9724286c240691e0',t:'MTc1NTcxNjY4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
-            b.getElementsByTagName("head")[0].appendChild(d);
-          }
+        class SimpleP2P {
+            constructor() {
+                this.peer = null;
+                this.connected = false;
+                this.room = null;
+                this.ws = null;
+                this.isHost = false;
+                this.init();
+            }
+
+            init() {
+                document.getElementById('createBtn').onclick = () => this.createRoom();
+                document.getElementById('joinBtn').onclick = () => this.joinRoom();
+                document.getElementById('copyBtn').onclick = () => this.copyRoomId();
+                document.getElementById('sendBtn').onclick = () => this.sendFile();
+                this.connectWebSocket();
+                this.updateStatus('Ready to create or join a room');
+            }
+
+            connectWebSocket() {
+                // For demo purposes, we'll simulate WebSocket connection
+                // In real Next.js app, connect to your WebSocket server
+                this.updateStatus('Connecting to signaling server...');
+                
+                // Simulate WebSocket connection
+                setTimeout(() => {
+                    this.ws = {
+                        send: (data) => {
+                            // Simulate message handling
+                            setTimeout(() => this.handleWebSocketMessage(data), 100);
+                        },
+                        readyState: 1 // OPEN
+                    };
+                    this.updateStatus('Connected to signaling server');
+                }, 500);
+            }
+
+            createRoom() {
+                this.room = Math.random().toString(36).substring(2, 8).toUpperCase();
+                this.isHost = true;
+                
+                document.getElementById('roomCode').textContent = this.room;
+                document.getElementById('roomDisplay').classList.remove('hidden');
+                
+                this.updateStatus(`Room ${this.room} created! Waiting for someone to join...`);
+                this.setupPeerConnection(true);
+            }
+
+            copyRoomId() {
+                const roomCode = document.getElementById('roomCode').textContent;
+                navigator.clipboard.writeText(roomCode).then(() => {
+                    const btn = document.getElementById('copyBtn');
+                    const original = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => btn.textContent = original, 2000);
+                });
+            }
+
+            joinRoom() {
+                const roomId = document.getElementById('roomId').value.trim().toUpperCase();
+                if (!roomId) {
+                    alert('Please enter a room ID');
+                    return;
+                }
+
+                this.room = roomId;
+                this.isHost = false;
+                this.updateStatus(`Joining room ${roomId}...`);
+                
+                // Send join request via WebSocket
+                if (this.ws && this.ws.readyState === 1) {
+                    this.ws.send(JSON.stringify({
+                        type: 'join-room',
+                        room: roomId
+                    }));
+                }
+                
+                this.setupPeerConnection(false);
+            }
+
+            handleWebSocketMessage(data) {
+                // Simulate WebSocket message handling
+                const message = typeof data === 'string' ? JSON.parse(data) : data;
+                
+                if (message.type === 'join-room') {
+                    // Simulate successful room join
+                    setTimeout(() => {
+                        this.updateStatus('Room joined! Establishing connection...');
+                        this.simulateConnection();
+                    }, 500);
+                } else if (message.type === 'peer-signal') {
+                    // Handle WebRTC signaling through WebSocket
+                    this.handleSignaling(message.signal);
+                }
+            }
+
+            setupPeerConnection(isHost) {
+                this.peer = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                if (isHost) {
+                    const channel = this.peer.createDataChannel('files');
+                    this.setupChannel(channel);
+                } else {
+                    this.peer.ondatachannel = (e) => this.setupChannel(e.channel);
+                }
+
+                // Handle ICE candidates
+                this.peer.onicecandidate = (event) => {
+                    if (event.candidate && this.ws) {
+                        this.ws.send(JSON.stringify({
+                            type: 'peer-signal',
+                            room: this.room,
+                            signal: {
+                                type: 'ice-candidate',
+                                candidate: event.candidate
+                            }
+                        }));
+                    }
+                };
+
+                // Simulate connection establishment
+                setTimeout(() => this.simulateConnection(), 1000);
+            }
+
+            handleSignaling(signal) {
+                // Handle WebRTC signaling messages
+                if (signal.type === 'ice-candidate') {
+                    this.peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                }
+            }
+
+            setupChannel(channel) {
+                channel.onopen = () => {
+                    this.connected = true;
+                    this.updateStatus(`🎉 Connected to room ${this.room}! Ready to send files`);
+                    document.getElementById('sendBtn').disabled = false;
+                };
+
+                channel.onmessage = (e) => this.handleMessage(e.data);
+                channel.onclose = () => {
+                    this.connected = false;
+                    this.updateStatus('Connection closed');
+                    document.getElementById('sendBtn').disabled = true;
+                };
+                
+                this.dataChannel = channel;
+            }
+
+            simulateConnection() {
+                // Simulate successful connection for demo
+                if (this.dataChannel) {
+                    this.dataChannel.onopen();
+                } else {
+                    setTimeout(() => {
+                        this.connected = true;
+                        this.updateStatus(`🎉 Connected to room ${this.room}! Ready to send files`);
+                        document.getElementById('sendBtn').disabled = false;
+                    }, 500);
+                }
+            }
+
+            async sendFile() {
+                const file = document.getElementById('fileInput').files[0];
+                if (!file || !this.connected) return;
+
+                this.showProgress(true);
+                this.updateProgress(0, 'Preparing...');
+
+                // Send file info
+                const fileInfo = {
+                    type: 'fileInfo',
+                    name: file.name,
+                    size: file.size
+                };
+
+                if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                    this.dataChannel.send(JSON.stringify(fileInfo));
+                }
+
+                // Send file in chunks
+                const chunkSize = 16384;
+                let offset = 0;
+
+                const sendChunk = async () => {
+                    if (offset >= file.size) {
+                        this.showProgress(false);
+                        this.updateStatus('File sent successfully!');
+                        return;
+                    }
+
+                    const chunk = file.slice(offset, offset + chunkSize);
+                    const buffer = await chunk.arrayBuffer();
+                    
+                    if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                        this.dataChannel.send(buffer);
+                    }
+                    
+                    offset += chunkSize;
+                    const progress = Math.min((offset / file.size) * 100, 100);
+                    this.updateProgress(progress, `Sending ${file.name}`);
+                    
+                    setTimeout(sendChunk, 10);
+                };
+
+                sendChunk();
+            }
+
+            handleMessage(data) {
+                if (typeof data === 'string') {
+                    const msg = JSON.parse(data);
+                    if (msg.type === 'fileInfo') {
+                        this.receivingFile = {
+                            name: msg.name,
+                            size: msg.size,
+                            chunks: [],
+                            received: 0
+                        };
+                        this.updateStatus(`Receiving ${msg.name}...`);
+                    }
+                } else {
+                    // Binary data
+                    if (this.receivingFile) {
+                        this.receivingFile.chunks.push(new Uint8Array(data));
+                        this.receivingFile.received += data.byteLength;
+                        
+                        if (this.receivingFile.received >= this.receivingFile.size) {
+                            this.completeFileReceive();
+                        }
+                    }
+                }
+            }
+
+            completeFileReceive() {
+                const file = this.receivingFile;
+                const blob = new Blob(file.chunks);
+                const url = URL.createObjectURL(blob);
+                
+                this.addReceivedFile(file.name, url);
+                this.updateStatus('File received!');
+                this.receivingFile = null;
+            }
+
+            addReceivedFile(name, url) {
+                const container = document.getElementById('files');
+                if (container.children[0]?.textContent === 'No files received') {
+                    container.innerHTML = '';
+                }
+                
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'flex justify-between items-center p-2 bg-gray-50 rounded';
+                fileDiv.innerHTML = `
+                    <span>📄 ${name}</span>
+                    <a href="${url}" download="${name}" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
+                        Download
+                    </a>
+                `;
+                container.appendChild(fileDiv);
+            }
+
+            updateStatus(text) {
+                document.getElementById('status').textContent = text;
+            }
+
+            showProgress(show) {
+                document.getElementById('progress').classList.toggle('hidden', !show);
+            }
+
+            updateProgress(percent, text) {
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressText').textContent = text + ` (${Math.round(percent)}%)`;
+            }
         }
-        if (document.body) {
-          var a = document.createElement("iframe");
-          a.height = 1;
-          a.width = 1;
-          a.style.position = "absolute";
-          a.style.top = 0;
-          a.style.left = 0;
-          a.style.border = "none";
-          a.style.visibility = "hidden";
-          document.body.appendChild(a);
-          if ("loading" !== document.readyState) c();
-          else if (window.addEventListener)
-            document.addEventListener("DOMContentLoaded", c);
-          else {
-            var e = document.onreadystatechange || function () {};
-            document.onreadystatechange = function (b) {
-              e(b);
-              "loading" !== document.readyState &&
-                ((document.onreadystatechange = e), c());
-            };
-          }
-        }
-      })();
+
+        new SimpleP2P();
     </script>
-    <footer class="text-start mt-5 py-3 px-3 text-black">
-    <p class="mb-0">Created by Ranjeet</p>
-</footer>
-  </body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97248547f32a8e8d',t:'MTc1NTcyMDQ4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

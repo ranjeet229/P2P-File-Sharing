@@ -104,9 +104,10 @@ class P2PFileTransfer {
       // Wait for ICE gathering to complete
       await this.waitForIceGathering();
 
-      document.getElementById("offerText").value = JSON.stringify(
-        this.peerConnection.localDescription
-      );
+      document.getElementById("offerText").value =
+      LZString.compressToBase64(JSON.stringify(this.peerConnection.localDescription));
+
+
       document.getElementById("offerSection").classList.remove("hidden");
       document.getElementById("answerSection").classList.remove("hidden");
 
@@ -129,7 +130,8 @@ class P2PFileTransfer {
       this.log("Processing offer and creating answer...", "info");
       this.updateConnectionStatus("Creating answer...");
 
-      const offer = JSON.parse(offerText);
+      const offer = JSON.parse(LZString.decompressFromBase64(offerText));
+
 
       this.peerConnection = new RTCPeerConnection({
         iceServers: [
@@ -153,9 +155,9 @@ class P2PFileTransfer {
       // Wait for ICE gathering to complete
       await this.waitForIceGathering();
 
-      document.getElementById("answerOutput").value = JSON.stringify(
-        this.peerConnection.localDescription
-      );
+      document.getElementById("answerOutput").value =
+      LZString.compressToBase64(JSON.stringify(this.peerConnection.localDescription));
+
       document.getElementById("answerOutputSection").classList.remove("hidden");
 
       this.log("Answer created! Share it with the sender", "success");
@@ -177,7 +179,7 @@ class P2PFileTransfer {
       this.log("Processing answer...", "info");
       this.updateConnectionStatus("Connecting...");
 
-      const answer = JSON.parse(answerText);
+      const answer = JSON.parse(LZString.decompressFromBase64(answerText));
       await this.peerConnection.setRemoteDescription(answer);
 
       this.log("Answer processed - establishing connection...", "info");

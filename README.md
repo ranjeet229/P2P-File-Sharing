@@ -17,12 +17,9 @@ A real-time peer-to-peer (P2P) file sharing application built with **WebRTC** an
 
 ## Tech Stack
 
-- **Frontend:** React / Next.js (or Vanilla JS if you kept it simple)
+- **Frontend:** javascript, Html 
 - **Signaling Server:** Node.js + WebSocket
 - **P2P Connection:** WebRTC DataChannels
-- **Database (optional):** MongoDB (for storing room/session metadata)
-
----
 
 
 ---
